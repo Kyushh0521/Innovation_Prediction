@@ -1,3 +1,7 @@
+# 不上传的文件，如数据集或者中间生成文件之类的
+
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
