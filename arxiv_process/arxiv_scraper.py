@@ -33,8 +33,8 @@ def fetch_arxiv_category_map():
                 h4 = item.find('h4')
                 if not h4:
                     continue
-                code_node = h4.contents[0]
-                code = code_node.strip() if code_node else None
+                code_node = h4.contents[0] if h4.contents else None
+                code = str(code_node).strip() if code_node else None
                 span = h4.find('span')
                 if span and span.text:
                     name = span.text.strip()
