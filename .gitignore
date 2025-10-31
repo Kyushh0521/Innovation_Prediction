@@ -1,6 +1,13 @@
 # 不上传的文件，如数据集或者中间生成文件之类的
-
-
+model/
+model_cache/
+Dataset/
+data_process_outputs/
+data_process/__pycache__/
+arxiv_process_outputs/
+.vscode/
+.ropeproject/
+.env
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
