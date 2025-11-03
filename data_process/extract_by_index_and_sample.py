@@ -59,7 +59,7 @@ def allocate_and_sample_by_category(df_out):
     """
     df_for_sample = df_out
     total_rows = len(df_for_sample)
-    target = max(1, int(round(total_rows * 0.1)))
+    target = max(1, int(round(total_rows * 0.05)))
 
     cat_series = df_for_sample['category'].fillna('').astype(str)
     counts = cat_series.value_counts().to_dict()
@@ -178,7 +178,7 @@ def main():
     print(f'统计已写出: {os.path.abspath(result_txt)}')
 
     # 按 category 抽样并写出
-    sample_xlsx = os.path.join('data_process_outputs', 'sample_by_category_10pct.xlsx')
+    sample_xlsx = os.path.join('data_process_outputs', 'sample_by_category.xlsx')
     sample_df, target = allocate_and_sample_by_category(out_df)
     sample_df.to_excel(sample_xlsx, index=False)
     # 根据 sample_df 中的 original_index 抽取原始 JSONL 中对应的记录并写出
