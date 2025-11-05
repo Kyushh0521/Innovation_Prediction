@@ -36,7 +36,7 @@ def main():
             if score > 0.80:
                 gt_08_pairs += 1
                 has_gt_08 = True
-            if score > 0.75:
+            if score > 0.73:
                 gt_075_pairs += 1
                 has_gt_075 = True
         if has_gt_08:

@@ -322,7 +322,7 @@ def main():
     # 直接通过变量指定参数（如需修改请在此处调整）
     top_k = 3
     primary_threshold = 0.8
-    secondary_threshold = 0.75
+    secondary_threshold = 0.73
     max_enterprises = None  # 若希望只处理前 N 条企业用于快速检查，可设置为整数，例如 10
     print('开始为企业匹配成果...')
     try:

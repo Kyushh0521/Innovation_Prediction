@@ -464,7 +464,7 @@ def main():
     exp_file = 'Dataset/experts_full_cleaned_filled.xlsx'
     out_jsonl = 'data_process_outputs/enterprises_experts_matches.jsonl' 
     top_k = 3
-    primary_threshold = 0.70
+    primary_threshold = 0.73
     max_enterprises = None  # 若希望只处理前 N 条企业用于快速检查，可设置为整数，例如 10
     model_names = ["shibing624/text2vec-base-chinese"]
     keyword_alpha = 0.2
