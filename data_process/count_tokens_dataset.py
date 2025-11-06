@@ -206,6 +206,27 @@ def process_file(input_path: str, output_json: str, model: Optional[str], output
         f"模型 {model} 已处理 {summary['count']} 条记录；"
         f"input_tokens_sum={summary['input_tokens_sum']}，output_tokens_sum={summary['output_tokens_sum']}，total_tokens_sum={summary['total_tokens_sum']}"
     )
+    # 计算费用（以人民币元计）：输入 0.0020 元 / 千 tokens，输出 0.0080 元 / 千 tokens
+    try:
+        input_price_per_k = 0.0020  # 元 / 千 tokens
+        output_price_per_k = 0.0080  # 元 / 千 tokens
+        input_tokens_total = summary.get('input_tokens_sum', 0)
+        output_tokens_total = summary.get('output_tokens_sum', 0)
+
+        cost_input = (input_tokens_total / 1000.0) * input_price_per_k
+        cost_output = (output_tokens_total / 1000.0) * output_price_per_k
+        cost_total = cost_input + cost_output
+
+        # 每条记录平均费用
+        count = summary.get('count', 0) or 0
+        avg_cost_per_record = (cost_total / count) if count else 0.0
+
+        print("\n估算费用：")
+        print(f"  输入 token 总数: {input_tokens_total}，单价 {input_price_per_k} 元/千 tokens，费用: {cost_input:.4f} 元")
+        print(f"  输出 token 总数: {output_tokens_total}，单价 {output_price_per_k} 元/千 tokens，费用: {cost_output:.4f} 元")
+        print(f"  预计总费用: {cost_total:.4f} 元，平均每条记录: {avg_cost_per_record:.6f} 元")
+    except Exception as e:
+        print(f"计算费用时出错: {e}")
 
 def main():
     INPUT_FILE = 'data_process_outputs/sample_inputs_with_matches.jsonl'
