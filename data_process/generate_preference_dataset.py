@@ -91,7 +91,7 @@ def build_prompt(company_info, research_trends, achievements):
     ]
 
 
-def call_llm(messages, model="qwen3-235b-a22b-instruct-2507", temperature=0.6):
+def call_llm(messages, model="qwen3-235b-a22b-instruct-2507", temperature=0.5):
     """
     调用 LLM 并返回文本。
     temperature: 控制输出的随机性，较低值（如 0.0-0.4）产出更确定性的文本，较高值（如 0.7-1.0）产出更发散的文本。
@@ -105,7 +105,7 @@ def call_llm(messages, model="qwen3-235b-a22b-instruct-2507", temperature=0.6):
         )
         text = response.choices[0].message.content
         # 等待一段时间以防速率限制（可通过脚本常量调整）
-        time.sleep(5)
+        time.sleep(1)
         return text
     except Exception as e:
         print(f"调用模型失败: {e}")
@@ -155,14 +155,14 @@ def build_preference_example(company_info, research_trends, achievements):
     }
 
 def main():
-    input_file = "data_process_outputs/enterprises_inputs_with_matches.jsonl"
-    output_file = "data_process_outputs/preference_dataset.json"
+    input_file = "data_process_outputs/sample_inputs_with_matches.jsonl"
+    output_file = "data_process_outputs/sample_preference_dataset.json"
 
     results = []
     with open(input_file, "r", encoding="utf-8") as f:
         lines = [json.loads(line) for line in f]
 
-    limit = 3  # 只取前几条用于验证
+    limit = None  # 只取前几条用于验证
     if limit is not None and limit > 0:
         print(f"只处理前 {limit} 条记录（用于检查验证）")
         lines = lines[:limit]
