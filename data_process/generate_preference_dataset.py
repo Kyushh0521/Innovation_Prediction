@@ -148,7 +148,7 @@ def build_preference_example(company_info, research_trends, achievements):
                 rejected_raw = m2.group(1).strip() if m2 else ""
 
     return {
-        "instruction": "根据企业信息、学术研究趋势和相关研究成果，预测该企业未来2-3年的研究方向。",
+        "instruction": "作为一名企业技术战略顾问，请根据以下信息（企业信息、学术研究趋势、相关研究成果），为该公司制定未来2-3年的研究方向。",
         "input": f"企业信息：{company_info}研究趋势：{research_trends}。研究成果：{achievements}",
         "chosen": chosen_raw,
         "rejected": rejected_raw
