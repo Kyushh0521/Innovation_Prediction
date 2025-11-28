@@ -4,7 +4,7 @@ from pathlib import Path
 
 # ------------------ 配置区（仅在此处修改） ------------------
 INPUT_PATH = Path("data_process_outputs/sample_preference_dataset.json")
-OUTPUT_TRAIN = Path("data_process_outputs/sample_train_dataset.train.json")
+OUTPUT_TRAIN = Path("data_process_outputs/sample_train_dataset.json")
 OUTPUT_VAL = Path("data_process_outputs/sample_val_dataset.json")
 RATIO = 0.9  # 训练集比例
 SEED = 42
