@@ -5,7 +5,6 @@ Dataset/
 data_process_outputs/
 data_process/__pycache__/
 arxiv_process_outputs/
-training_outputs/
 .vscode/
 .ropeproject/
 .env
