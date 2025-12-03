@@ -3,10 +3,13 @@ import random
 from pathlib import Path
 
 # ------------------ 配置区（仅在此处修改） ------------------
-INPUT_PATH = Path("data_process_outputs/sample_preference_dataset.json")
-OUTPUT_TRAIN = Path("data_process_outputs/sample_train_dataset.json")
-OUTPUT_VAL = Path("data_process_outputs/sample_val_dataset.json")
-RATIO = 0.9  # 训练集比例
+INPUT_PATH = Path("data_process_outputs/sample_sft.json")
+OUTPUT_TRAIN = Path("data_process_outputs/sample_sft_train.json")
+OUTPUT_VAL = Path("data_process_outputs/sample_sft_val.json")
+OUTPUT_TEST = Path("data_process_outputs/sample_sft_test.json")
+TRAIN_RATIO = 0.8
+VAL_RATIO = 0.1
+TEST_RATIO = 0.1
 SEED = 42
 # -----------------------------------------------------------
 
@@ -32,12 +35,18 @@ def split_and_save():
     items = load_items(INPUT_PATH)
     rnd = random.Random(SEED)
     rnd.shuffle(items)
-    cut = int(len(items) * RATIO)
-    train = items[:cut]
-    val = items[cut:]
+    n = len(items)
+    n_train = int(n * TRAIN_RATIO)
+    n_val = int(n * VAL_RATIO)
+    n_test = n - n_train - n_val
+
+    train = items[:n_train]
+    val = items[n_train:n_train + n_val]
+    test = items[n_train + n_val:n_train + n_val + n_test]
     save_json(train, OUTPUT_TRAIN)
     save_json(val, OUTPUT_VAL)
-    print(f"加载 {len(items)} 条记录。训练集: {len(train)}。验证集: {len(val)}")
+    save_json(test, OUTPUT_TEST)
+    print(f"加载 {n} 条记录。训练集: {len(train)}。验证集: {len(val)}。测试集: {len(test)}")
 
 
 if __name__ == "__main__":
