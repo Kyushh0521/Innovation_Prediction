@@ -121,7 +121,7 @@ def get_generate_fn(model, tokenizer, cutoff_len: int):
             prompt_text,
             return_tensors="pt",
             truncation=True,
-            cutoff_length=cutoff_len
+            max_length=cutoff_len
         ).to(model.device)
 
         # 4. 生成（强制 deterministic）
@@ -171,7 +171,14 @@ def evaluate_dataset(dataset_path: str, model_generate, embedder_name: str, out_
         input_text = sample.get("input", "")
         label = sample.get("output", "")
         # 模型推理
-        model_output = model_generate(system_prompt, instruction, input_text)
+        try:
+            model_output = model_generate(system_prompt, instruction, input_text)
+            gen_error = None
+        except Exception as e:
+            # 记录异常并将该样本预测置为空，继续后续样本的评估
+            logging.exception(f"模型生成失败，跳过该样本。instruction={instruction[:120]!r}")
+            model_output = ""
+            gen_error = str(e)
         # 提取方向列表
         gt_dirs = extract_directions(label)
         pred_dirs = extract_directions(model_output)
@@ -186,6 +193,7 @@ def evaluate_dataset(dataset_path: str, model_generate, embedder_name: str, out_
             "input": input_text,
             "label": label,
             "prediction": model_output,
+            "gen_error": gen_error,
             "gt_count": len(gt_dirs),
             "pred_count": len(pred_dirs)
         })
@@ -240,6 +248,7 @@ def evaluate_dataset(dataset_path: str, model_generate, embedder_name: str, out_
             "input": record["input"],
             "label": record["label"],
             "prediction": record["prediction"],
+            "gen_error": record["gen_error"],
             "score": s_f1,
             "precision": s_precision,
             "recall": s_recall
@@ -306,7 +315,7 @@ def main():
     embedding_cache=cfg.get('embedding_cache', None)
     embed_batch_size = cfg.get('embed_batch_size', 32)
     dataset_path=cfg.get('dataset_path', 'model_eval/sample_sft_test.json')
-    cutoff_len=cfg.get('cutoff_len', 2048)
+    cutoff_len=cfg.get('cutoff_len', 3072)
     output_dir=cfg.get('output_dir', "eval_outputs/qwen2.5-0.5B-Instruct/original")
     run_label=cfg.get('run_label', "original_eval")
     threshold=cfg.get('threshold', 0.5)

@@ -13,7 +13,7 @@ embed_batch_size: 32
 # 测试集路径
 dataset_path: "model_eval/sample_sft_test.json"
 # 截断长度
-cutoff_len: 2048
+cutoff_len: 3072
 
 ### Output Section (结果输出)
 # 结果输出目录
