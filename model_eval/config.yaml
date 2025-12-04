@@ -7,19 +7,20 @@ adapter_name_or_path: null  # 例如: "saves/qwen2.5-0.5B-Instruct/lora/sft"
 # Embedding 模型
 embedding_name_or_path: "Qwen/Qwen3-Embedding-0.6B"
 embedding_cache: /mnt/share/wwt/models/Qwen/Qwen3-Embedding-0.6B
+embed_batch_size: 32
 
 ### Dataset Section (数据与评估)
 # 测试集路径
-dataset_path: "./data/test_dataset.json"
+dataset_path: "model_eval/sample_sft_test.json"
 # 截断长度
-cutoff_len: 3072
+cutoff_len: 2048
 
 ### Output Section (结果输出)
 # 结果输出目录
 output_dir: "eval_outputs/qwen2.5-0.5B-Instruct/original"
 # 运行 ID (用于文件名)
-run_label: "original_test"
+run_label: "original_eval"
 
 ### Metric Section (指标逻辑)
 # 相似度阈值
-threshold: 0.6
+threshold: 0.5

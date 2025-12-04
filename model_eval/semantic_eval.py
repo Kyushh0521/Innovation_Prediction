@@ -73,7 +73,7 @@ def load_model_and_tokenizer(cfg_model):
     # 加载基座模型
     model = AutoModelForCausalLM.from_pretrained(
         model_path,
-        torch_dtype=torch.float16,
+        torch_dtype=torch.bfloat16,
         device_map="auto",
         trust_remote_code=True, 
         cache_dir=cache_dir
@@ -81,31 +81,29 @@ def load_model_and_tokenizer(cfg_model):
 
     if adapter_path:
         logging.info(f"检测到 LoRA 配置，正在挂载适配器: {adapter_path}")
-        model = PeftModel.from_pretrained(model, adapter_path, torch_dtype=torch.float16, cache_dir=cache_dir, device_map="auto")
+        model = PeftModel.from_pretrained(model, adapter_path, torch_dtype=torch.bfloat16, cache_dir=cache_dir, device_map="auto")
         # 如果是推理模式，通常会合并权重以加快速度（可选）
-        # model = model.merge_and_unload() 
-    
+        # model = model.merge_and_unload()
     model.eval() # 开启评估模式
     return model, tokenizer
 
 
 def get_generate_fn(model, tokenizer, cutoff_len: int):
     """
-    构建模型推理函数（企业版增强）
-    支持：
-    - ChatTemplate
-    - 输入截断
-    - 安全的输出切片
-    - 全自动 device map
+    构建模型推理函数
     """
 
     def generate(system_prompt: str, instruction: str, input_text: str):
 
         # 1. 标准消息格式
+        if input_text:
+            user_msg = f"{instruction}\n\n输入：\n{input_text}"
+        else:
+            user_msg = instruction
+
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": instruction},
-            {"role": "user", "content": input_text}
+            {"role": "user", "content": user_msg},
         ]
 
         # 2. 应用模型 Chat Template
@@ -123,7 +121,7 @@ def get_generate_fn(model, tokenizer, cutoff_len: int):
             prompt_text,
             return_tensors="pt",
             truncation=True,
-            max_length=cutoff_len
+            cutoff_length=cutoff_len
         ).to(model.device)
 
         # 4. 生成（强制 deterministic）
@@ -155,20 +153,18 @@ def get_generate_fn(model, tokenizer, cutoff_len: int):
 # 评估流程
 # ---------------------------------------------------------------------------
 
-def evaluate_dataset(dataset_path: str, model_generate, embedder_name: str, out_path: str, threshold: float = 0.5, embedding_cache: Optional[str] = None):
+def evaluate_dataset(dataset_path: str, model_generate, embedder_name: str, out_path: str,threshold: float = 0.5, embedding_cache: Optional[str] = None,embed_batch_size: int = 32):
     data = load_json(dataset_path)
-    embedder = SentenceTransformer(embedder_name, device="auto",cache_folder=embedding_cache)
-    results = []
+    embedder = SentenceTransformer(embedder_name, device="auto", cache_folder=embedding_cache)
 
-    # 全局累加器 (用于 Micro 计算)
-    # 分子：匹配程度的总和
-    total_pred_matches_sum = 0.0  
-    total_gt_matches_sum = 0.0    
-    # 分母：项目总数
-    total_pred_count = 0          
-    total_gt_count = 0            
+    generation_records: List[Dict] = []
+    all_gt_texts: List[str] = []
+    all_pred_texts: List[str] = []
+    gt_segments: List[tuple[int, int]] = []
+    pred_segments: List[tuple[int, int]] = []
 
-    for sample in tqdm(data, desc="Evaluating"):
+    # 先完成所有样本的推理，确保输出顺序与数据集一致
+    for sample in tqdm(data, desc="Generating outputs"):
         # 提取数据
         system_prompt = sample.get("system", "")
         instruction = sample.get("instruction", "")
@@ -176,59 +172,77 @@ def evaluate_dataset(dataset_path: str, model_generate, embedder_name: str, out_
         label = sample.get("output", "")
         # 模型推理
         model_output = model_generate(system_prompt, instruction, input_text)
-
         # 提取方向列表
         gt_dirs = extract_directions(label)
         pred_dirs = extract_directions(model_output)
 
-        # 处理空真值/空预测的边界情况，避免对空 tensor 调用 max()
-        if len(gt_dirs) == 0 or len(pred_dirs) == 0:
-            # 当任一方为空时，视为没有匹配
-            sample_recall_sum = 0.0
-            sample_precision_sum = 0.0
-        else:
-            # 编码向量（确保在 CUDA 上生成 tensor）
-            gt_embeds = embedder.encode(gt_dirs, convert_to_tensor=True)
-            pred_embeds = embedder.encode(pred_dirs, convert_to_tensor=True)
+        gt_segments.append((len(all_gt_texts), len(gt_dirs)))
+        pred_segments.append((len(all_pred_texts), len(pred_dirs)))
+        all_gt_texts.extend(gt_dirs)
+        all_pred_texts.extend(pred_dirs)
 
-            # 计算相似度矩阵
-            sim_matrix = util.cos_sim(pred_embeds, gt_embeds)
-            
-            # A. 计算 Recall (针对 GT: 每一个GT是否被召回?)
-            recall_vals = sim_matrix.max(dim=0).values
-            recall_vals[recall_vals < threshold] = 0.0 # 阈值过滤
-            sample_recall_sum = recall_vals.sum().item()
-            
-            # B. 计算 Precision (针对 Pred: 每一个Pred是否准确?)
-            precision_vals = sim_matrix.max(dim=1).values
-            precision_vals[precision_vals < threshold] = 0.0 # 阈值过滤
-            sample_precision_sum = precision_vals.sum().item()
-
-        # 单样本指标
-        s_recall = sample_recall_sum / len(gt_dirs) if len(gt_dirs) > 0 else 0.0
-        s_precision = sample_precision_sum / len(pred_dirs) if len(pred_dirs) > 0 else 0.0
-        
-        if s_precision + s_recall == 0:
-            s_f1 = 0.0
-        else:
-            s_f1 = 2 * s_precision * s_recall / (s_precision + s_recall)
-
-        # 累加全局统计量
-        total_gt_matches_sum += sample_recall_sum
-        total_gt_count += len(gt_dirs)
-        
-        total_pred_matches_sum += sample_precision_sum
-        total_pred_count += len(pred_dirs)
-
-        # 保存单条数据的详细指标
-        results.append({
+        generation_records.append({
             "instruction": instruction,
             "input": input_text,
             "label": label,
             "prediction": model_output,
-            "score": s_f1,              # F1
-            "precision": s_precision,   # P
-            "recall": s_recall          # R
+            "gt_count": len(gt_dirs),
+            "pred_count": len(pred_dirs)
+        })
+
+    # 对所有方向文本批量编码，提升效率并保持顺序
+    gt_embeddings = embedder.encode(all_gt_texts, convert_to_tensor=True, batch_size=embed_batch_size) if all_gt_texts else None
+    pred_embeddings = embedder.encode(all_pred_texts, convert_to_tensor=True, batch_size=embed_batch_size) if all_pred_texts else None
+
+    results = []
+    # 全局累加器 (用于 Micro 计算)
+    total_pred_matches_sum = 0.0
+    total_gt_matches_sum = 0.0
+    total_pred_count = 0
+    total_gt_count = 0
+
+    for idx, record in enumerate(tqdm(generation_records, desc="Evaluating")):
+        gt_start, gt_len = gt_segments[idx]
+        pred_start, pred_len = pred_segments[idx]
+        # 处理空真值/空预测的边界情况，避免对空 tensor 调用 max()
+        if gt_len == 0 or pred_len == 0:
+            # 当任一方为空时，视为没有匹配
+            sample_recall_sum = 0.0
+            sample_precision_sum = 0.0
+        else:
+            if gt_embeddings is None or pred_embeddings is None:
+                raise ValueError("嵌入张量为空（None），但长度不为零。请检查编码阶段。")
+            gt_embeds = gt_embeddings[gt_start: gt_start + gt_len]
+            pred_embeds = pred_embeddings[pred_start: pred_start + pred_len]
+            # 计算相似度矩阵
+            sim_matrix = util.cos_sim(pred_embeds, gt_embeds)
+            # 计算 Recall (针对 GT: 每一个GT是否被召回?)
+            recall_vals = sim_matrix.max(dim=0).values
+            recall_vals[recall_vals < threshold] = 0.0
+            sample_recall_sum = recall_vals.sum().item()
+            # 计算 Precision (针对 Pred: 每一个Pred是否准确?)
+            precision_vals = sim_matrix.max(dim=1).values
+            precision_vals[precision_vals < threshold] = 0.0
+            sample_precision_sum = precision_vals.sum().item()
+        
+        # 单样本指标
+        s_recall = sample_recall_sum / gt_len if gt_len > 0 else 0.0
+        s_precision = sample_precision_sum / pred_len if pred_len > 0 else 0.0
+        s_f1 = 0.0 if (s_precision + s_recall) == 0 else (2 * s_precision * s_recall / (s_precision + s_recall))
+        # 累加全局统计量
+        total_gt_matches_sum += sample_recall_sum
+        total_gt_count += gt_len
+        total_pred_matches_sum += sample_precision_sum
+        total_pred_count += pred_len
+        # 保存单条数据的详细指标
+        results.append({
+            "instruction": record["instruction"],
+            "input": record["input"],
+            "label": record["label"],
+            "prediction": record["prediction"],
+            "score": s_f1,
+            "precision": s_precision,
+            "recall": s_recall
         })
 
     # 保存详细结果文件
@@ -237,21 +251,17 @@ def evaluate_dataset(dataset_path: str, model_generate, embedder_name: str, out_
 
     # 计算整体指标
     # Macro Average
-    if len(results) > 0:
+    if results:
         macro_precision = sum(r['precision'] for r in results) / len(results)
         macro_recall = sum(r['recall'] for r in results) / len(results)
         macro_f1 = sum(r['score'] for r in results) / len(results)
     else:
         macro_precision = macro_recall = macro_f1 = 0.0
-
+    
     # Micro Average
     micro_precision = total_pred_matches_sum / total_pred_count if total_pred_count > 0 else 0.0
     micro_recall = total_gt_matches_sum / total_gt_count if total_gt_count > 0 else 0.0
-    
-    if micro_precision + micro_recall == 0:
-        micro_f1 = 0.0
-    else:
-        micro_f1 = 2 * micro_precision * micro_recall / (micro_precision + micro_recall)
+    micro_f1 = 0.0 if (micro_precision + micro_recall) == 0 else (2 * micro_precision * micro_recall / (micro_precision + micro_recall))
 
     # 整体指标汇总
     metrics = {
@@ -280,8 +290,9 @@ def load_config(path: str) -> Dict:
 # ---------------------------------------------------------------------------
 # 主入口
 # ---------------------------------------------------------------------------
+
 def main():
-    # 仅通过命令行指定配置文件路径
+    # 通过命令行指定配置文件调用参数
     parser = argparse.ArgumentParser(description="使用 YAML 配置运行评估")
     parser.add_argument('--config', type=str, required=True, help='YAML 配置文件路径')
     args = parser.parse_args()
@@ -291,13 +302,14 @@ def main():
     model_name=cfg.get('model_name_or_path', 'Qwen/Qwen2.5-0.5B-Instruct')
     model_cache=cfg.get('model_cache', None)
     adapter_name =cfg.get('adapter_name_or_path', None)
-    embedding_name=cfg.get('embedding_name_or_path', 'BAAI/bge-large-zh-v1.5')
+    embedding_name=cfg.get('embedding_name_or_path', 'Qwen/Qwen3-Embedding-0.6B')
     embedding_cache=cfg.get('embedding_cache', None)
-    dataset_path=cfg.get('dataset_path', './data/test_dataset.json')
-    cutoff_len=cfg.get('cutoff_len', 3072)
+    embed_batch_size = cfg.get('embed_batch_size', 32)
+    dataset_path=cfg.get('dataset_path', 'model_eval/sample_sft_test.json')
+    cutoff_len=cfg.get('cutoff_len', 2048)
     output_dir=cfg.get('output_dir', "eval_outputs/qwen2.5-0.5B-Instruct/original")
-    run_label=cfg.get('run_label', "original_test")
-    threshold=cfg.get('threshold', 0.6)
+    run_label=cfg.get('run_label', "original_eval")
+    threshold=cfg.get('threshold', 0.5)
 
     if not dataset_path:
         raise ValueError("配置文件中未找到 dataset.path，请在 config.yaml 中设置。")
@@ -310,7 +322,6 @@ def main():
     logging.info(f"数据集: {dataset_path}")
     logging.info(f"模型: {model_name}，适配器: {adapter_name if adapter_name else '无'}")
     logging.info(f"嵌入模型: {embedding_name}")
-    logging.info(f"输出目录: {output_dir}")
     logging.info(f"运行 ID: {run_label}")
 
     model_cfg = {
@@ -333,7 +344,8 @@ def main():
         embedder_name=embedding_name,
         out_path=out_path,
         threshold=threshold,
-        embedding_cache=embedding_cache
+        embedding_cache=embedding_cache,
+        embed_batch_size=embed_batch_size
     )
 
     # 输出摘要
