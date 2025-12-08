@@ -122,7 +122,16 @@ def get_generate_fn(model, tokenizer, cutoff_len: int):
             return_tensors="pt",
             truncation=True,
             max_length=cutoff_len
-        ).to(model.device)
+        )
+
+        # 将 inputs 放到模型第一个参数所在的设备，兼容 device_map="auto" 场景
+        try:
+            first_param = next(model.parameters())
+            device_for_inputs = first_param.device
+        except StopIteration:
+            device_for_inputs = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+        model_inputs = model_inputs.to(device_for_inputs)
 
         # 4. 生成（强制 deterministic）
         with torch.no_grad():

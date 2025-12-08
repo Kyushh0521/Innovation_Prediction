@@ -1,0 +1,9 @@
+model_name_or_path: "Qwen/Qwen2.5-7B-Instruct"
+adapter_name_or_path: null
+model_cache: "./model_cache/"
+
+dataset_path: "dataset/test.json"
+cutoff_len: 2048
+
+output_dir: "eval_outputs/ppl"
+run_label: "qwen_base_ppl"
