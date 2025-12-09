@@ -283,7 +283,7 @@ def main():
     )
 
     # 输出摘要
-    logging.info("=== 评估摘要 (Average) ===")
+    logging.info("=== 评估摘要 (平均值) ===")
     logging.info(f"BLEU-4:  {avg_metrics['bleu-4']:.4f}")
     logging.info(f"ROUGE-1: {avg_metrics['rouge-1']:.4f}")
     logging.info(f"ROUGE-2: {avg_metrics['rouge-2']:.4f}")
