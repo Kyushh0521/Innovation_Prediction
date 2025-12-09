@@ -185,7 +185,7 @@ def evaluate_dataset(dataset_path: str, model_generate, embedder_name: str, out_
             gen_error = None
         except Exception as e:
             # 记录异常并将该样本预测置为空，继续后续样本的评估
-            logging.exception(f"模型生成失败，跳过该样本。instruction={instruction[:120]!r}")
+            logging.exception(f"模型生成失败，跳过该样本。")
             model_output = ""
             gen_error = str(e)
         # 提取方向列表

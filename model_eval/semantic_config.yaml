@@ -17,9 +17,9 @@ cutoff_len: 3072
 
 ### Output Section (结果输出)
 # 结果输出目录
-output_dir: "eval_outputs/qwen2.5-0.5B-Instruct/original"
+output_dir: "eval_outputs/qwen2.5-0.5B-Instruct/pretrained"
 # 运行 ID (用于文件名)
-run_label: "original_eval"
+run_label: "semantic_eval"
 
 ### Metric Section (指标逻辑)
 # 相似度阈值

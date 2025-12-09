@@ -1,4 +1,5 @@
 import argparse
+from sklearn.utils import gen_batches
 import yaml
 import json
 import logging
@@ -81,8 +82,6 @@ def load_model_and_tokenizer(cfg_model):
 # ---------------------------------------------------------------------------
 # 计算困惑度
 # ---------------------------------------------------------------------------
-
-import torch
 
 def compute_ppl_for_sample(model, tokenizer, system_prompt: str, instruction: str, input_text: str, output_text: str, cutoff_len: int):
     """
@@ -203,14 +202,17 @@ def evaluate_dataset(dataset_path: str, model, tokenizer, cutoff_len: int, out_p
 
         try:
             ppl = compute_ppl_for_sample(model, tokenizer, sys_prompt, instruction, input_data, label, cutoff_len)
+            gen_error = None
         except Exception as e:
             logging.exception(f"PPL 计算失败: {str(e)}")
+            gen_error = str(e)
             ppl = None
 
         results.append({
             "instruction": instruction,
             "input": input_data,
             "label": label,
+            "error": gen_error,
             "ppl": ppl
         })
 
