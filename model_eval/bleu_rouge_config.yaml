@@ -1,9 +1,0 @@
-model_name_or_path: "Qwen/Qwen2.5-0.5B-Instruct"
-adapter_name_or_path: null
-model_cache: "/mnt/share/wwt/models/Qwen/Qwen2.5-0.5B-Instruct"
-
-dataset_path: "model_eval/sample_sft_test.json"
-cutoff_len: 3072
-
-output_dir: "eval_outputs/qwen2.5-0.5B-Instruct/pretrained"
-run_label: "bleu_rouge_eval"

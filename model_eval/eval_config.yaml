@@ -1,0 +1,21 @@
+# 模型路径配置
+model_name_or_path: "Qwen/Qwen2.5-0.5B-Instruct"
+adapter_name_or_path: null  # "saves/qwen2.5-0.5B-Instruct/lora/sft"
+model_cache: "/mnt/share/wwt/models/Qwen/Qwen2.5-0.5B-Instruct"
+
+# 数据集配置
+dataset_path: "model_eval/sample_sft_test.json"
+output_dir: "eval_outputs/qwen2.5-0.5B-Instruct/pre" # pre/post
+run_label: "pre" # 用于区分不同评估运行的标签，如 "pre" 或 "post"
+cutoff_len: 3072
+
+# === 评估任务开关 ===
+eval_ppl: True          # 是否计算困惑度
+eval_bleu_rouge: True   # 是否计算传统文本生成指标
+eval_semantic: True     # 是否计算语义相似度 (需要额外加载 Embedding 模型)
+
+# 语义评估专用配置 (仅当 eval_semantic: True 时生效)
+embedding_name_or_path: "Qwen/Qwen3-Embedding-0.6B"
+embedding_cache: "/mnt/share/wwt/models/Qwen/Qwen3-Embedding-0.6B"
+embed_batch_size: 32
+semantic_threshold: 0.5
