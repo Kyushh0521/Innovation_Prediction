@@ -5,6 +5,8 @@ Dataset/
 data_process_outputs/
 data_process/__pycache__/
 arxiv_process_outputs/
+eval_outputs/
+model/__pycache__/
 .vscode/
 .ropeproject/
 .env

@@ -1,0 +1,3 @@
+pre_path: eval_outputs/pre/pre_summary.json # 评估前结果路径
+post_path: eval_outputs/post/post_summary.json # 评估后结果路径
+output_path: eval_outputs/plots # 图表输出目录

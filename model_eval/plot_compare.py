@@ -7,16 +7,18 @@
 3) 绘制 PPL 的柱状对比图
 
 用法示例：
-python plot_compare.py --pre eval_results/pre_summary.json --post eval_results/post_summary.json --outdir eval_results/plots
+python plot_compare.py --config plot_config.yaml
 
 输出为静态 PNG 图片，保存到指定目录。
 """
 import os
 import json
 import argparse
+import yaml
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+from utils import load_config
 
 # 统一使用微软雅黑字体显示中文，并确保负号正常显示
 mpl.rcParams['font.sans-serif'] = ['Microsoft YaHei']
@@ -153,32 +155,34 @@ def plot_ppl(summaryA, summaryB, labelA, labelB, outpath):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="模型评估可视化")
-    parser.add_argument("--pre", type=str, required=True, help="第一个 summary 文件的完整路径（例如 eval_results/<run>_summary.json）")
-    parser.add_argument("--post", type=str, required=True, help="第二个 summary 文件的完整路径（例如 eval_results/<run>_summary.json）")
-    parser.add_argument("--outdir", type=str, default="eval_results/plots", help="图表输出目录")
+    parser = argparse.ArgumentParser(description="模型评估可视化（使用 YAML 配置）")
+    parser.add_argument("--config", type=str, required=True, help="YAML 配置文件路径")
     args = parser.parse_args()
 
+    cfg = load_config(args.config)
 
-    os.makedirs(args.outdir, exist_ok=True)
+    pre_path = cfg.get("pre_path")
+    post_path = cfg.get("post_path")
+    outdir = cfg.get("output_path", "eval_results/plots")
 
-    summaryA = load_summary(args.pre)
-    summaryB = load_summary(args.post)
+    os.makedirs(outdir, exist_ok=True)
+
+    summaryA = load_summary(pre_path)
+    summaryB = load_summary(post_path)
 
     # semantic 雷达
-    out_sem = os.path.join(args.outdir, f"Pre_vs_Post_semantic_radar.png")
+    out_sem = os.path.join(outdir, f"Pre_vs_Post_semantic_radar.png")
     plot_semantic(summaryA, summaryB, "Pre", "Post", out_sem)
 
     # BLEU/ROUGE 柱状
-    out_bleu = os.path.join(args.outdir, f"Pre_vs_Post_bleu_rouge.png")
+    out_bleu = os.path.join(outdir, f"Pre_vs_Post_bleu_rouge.png")
     plot_bleu_rouge(summaryA, summaryB, "Pre", "Post", out_bleu)
 
     # PPL 柱状
-    out_ppl = os.path.join(args.outdir, f"Pre_vs_Post_ppl.png")
+    out_ppl = os.path.join(outdir, f"Pre_vs_Post_ppl.png")
     plot_ppl(summaryA, summaryB, "Pre", "Post", out_ppl)
 
-    print(f"已保存图表到目录: {args.outdir}")
-
+    print(f"已保存图表到目录: {outdir}")
 
 if __name__ == "__main__":
     main()
