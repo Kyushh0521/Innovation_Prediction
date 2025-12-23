@@ -9,7 +9,11 @@ output_dir: "eval_outputs/qwen2.5-0.5B-Instruct/pre" # pre/post
 run_label: "pre" # 用于区分不同评估运行的标签，如 "pre" 或 "post"
 cutoff_len: 3072
 
-# === 评估任务开关 ===
+# BERTScore 设置
+language: "en"
+bertscore_model: "microsoft/deberta-xlarge-mnli"
+
+# 评估任务开关
 eval_ppl: True          # 是否计算困惑度
 eval_bleu_rouge: True   # 是否计算传统文本生成指标
 eval_semantic: True     # 是否计算语义相似度 (需要额外加载 Embedding 模型)

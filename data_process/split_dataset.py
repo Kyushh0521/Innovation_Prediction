@@ -3,10 +3,10 @@ import random
 from pathlib import Path
 
 # ------------------ 配置区（仅在此处修改） ------------------
-INPUT_PATH = Path("data_process_outputs/sample_sft.json")
-OUTPUT_TRAIN = Path("data_process_outputs/sample_sft_train.json")
-OUTPUT_VAL = Path("data_process_outputs/sample_sft_val.json")
-OUTPUT_TEST = Path("data_process_outputs/sample_sft_test.json")
+INPUT_PATH = Path("datasets/alpaca_subset.json")
+OUTPUT_TRAIN = Path("datasets/alpaca_subset_train.json")
+OUTPUT_VAL = Path("datasets/alpaca_subset_val.json")
+OUTPUT_TEST = Path("datasets/alpaca_subset_test.json")
 TRAIN_RATIO = 0.8
 VAL_RATIO = 0.1
 TEST_RATIO = 0.1

@@ -1,12 +1,16 @@
 # 不上传的文件，如数据集或者中间生成文件之类的
 model/
 model_cache/
-Dataset/
+datasets/
+original_data/
 data_process_outputs/
-data_process/__pycache__/
 arxiv_process_outputs/
 eval_outputs/
+train_outputs/
 model/__pycache__/
+data_process/__pycache__/
+lora_training/__pycache__/
+model_eval/__pycache__/
 .vscode/
 .ropeproject/
 .env

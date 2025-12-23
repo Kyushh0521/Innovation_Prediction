@@ -1,0 +1,37 @@
+# ================= 基础环境配置 =================
+model_name_or_path: "Qwen/Qwen2.5-0.5B-Instruct"
+model_cache: "/mnt/share/wwt/models/Qwen/Qwen2.5-0.5B-Instruct"
+train_dataset: "lora_training/sample_sft_train.json"
+result_output: "train_outputs"
+model_output: "/mnt/share/wwt/models/Qwen/Qwen2.5-0.5B-Instruct/lora_dyn_adv" # 模型与检查点输出目录（仅保存模型权重与相关文件）。
+max_length: 3072
+
+# ================= 训练核心超参 =================
+batch_size: 1                  # 单卡批次大小 (显存占用主要来源)
+gradient_accumulation_steps: 8 # 梯度累积步数。真实 Batch Size = 1 * 8 = 8
+epochs: 3                      # 训练轮数
+learning_rate: 1.0e-5          # LoRA 常用学习率
+weight_decay: 0.01             # 增加一点正则化防止过拟合
+warmup_frac: 0.1               # 学习率热身比例，表示占总训练步数的比例，例如 0.1 表示 10%
+save_steps: 100                # 模型保存频率（步数）
+logging_steps: 10              # 日志打印频率，方便监控 Loss
+num_workers: 4                 # 数据加载进程数
+max_grad_norm: 1.0             # 梯度裁剪阈值
+
+# ================= LoRA 配置 =================
+r: 8                        # 推荐 16 或 64，Qwen 对秩较敏感
+lora_alpha: 16              # 通常设为 r 的 2 倍
+dropout: 0.05
+target_modules: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+
+# ================= 对抗训练配置 =================
+twarmup_frac: 0.15           # 对抗扰动热身比例 (Root Level)
+eps_max: 0.4                # 最大扰动幅度 (Epsilon)
+adv_alpha: 0.05              # 单步攻击步长
+steps: 3                    # PGD 攻击步数 (K)
+lambda_adv: 1.0 
+            # 对抗损失权重
+
+# ================= 验证集配置 =================
+eval_dataset: "lora_training/sample_sft_val.json"
+eval_steps: 20              # 每隔多少步进行一次验证

@@ -9,7 +9,7 @@ import gc
 
 # 引入自定义模块
 from utils import init_logging, load_json, load_config, load_model_and_tokenizer, get_generate_fn
-import metrics_lib
+import model_eval.generation_metrics as generation_metrics
 
 def main():
     parser = argparse.ArgumentParser(description="统一模型评估工具")
@@ -23,6 +23,8 @@ def main():
     dataset_path = cfg.get("dataset_path", "model_eval/sample_sft_test.json")
     output_dir = cfg.get("output_dir", "eval_results")
     run_label = cfg.get("run_label", "combined_eval")
+    # 获取语言配置 (仅用于 BERTScore)
+    eval_lang = cfg.get("language", "en")
     os.makedirs(output_dir, exist_ok=True)
     
     init_logging(output_dir, log_name=f"{run_label}.log")
@@ -33,15 +35,14 @@ def main():
     do_ppl = cfg.get("eval_ppl", False)
     do_bleu_rouge = cfg.get("eval_bleu_rouge", False)
     do_semantic = cfg.get("eval_semantic", False)
+    do_bertscore = cfg.get("eval_bertscore", False)
 
     # 根据配置打印将要执行的评估项和简要配置摘要，便于在日志中快速查看
     enabled = []
-    if do_ppl:
-        enabled.append("PPL")
-    if do_bleu_rouge:
-        enabled.append("BLEU/ROUGE")
-    if do_semantic:
-        enabled.append("Semantic")
+    if do_ppl: enabled.append("PPL")
+    if do_bleu_rouge: enabled.append("BLEU/ROUGE")
+    if do_semantic: enabled.append("Semantic")
+    if do_bertscore: enabled.append("BERTScore")
 
     logging.info(f"将要运行的评估: {', '.join(enabled) if enabled else '无'}")
     
@@ -62,7 +63,7 @@ def main():
 
     # 3. 加载 LLM 模型 (如果任何评估需要用到 LLM)
     # 注意：PPL 和 生成 都需要 LLM
-    if do_ppl or do_bleu_rouge or do_semantic:
+    if do_ppl or do_bleu_rouge or do_semantic or do_bertscore:
         model_cfg = {
             "model_name_or_path": cfg.get("model_name_or_path"),
             "adapter_name_or_path": cfg.get("adapter_name_or_path"),
@@ -81,7 +82,7 @@ def main():
     if do_ppl:
         logging.info(">>> 开始 PPL 评估...")
         for res in tqdm(results, desc="计算 PPL"):
-            ppl = metrics_lib.compute_ppl(
+            ppl = generation_metrics.compute_ppl(
                 model, tokenizer,
                 res["system"], res["instruction"], res["input"], res["label"],
                 cutoff_len
@@ -123,7 +124,7 @@ def main():
             pred = res.get("prediction", "")
             label = res.get("label", "")
             
-            scores = metrics_lib.compute_bleu_rouge(pred, label)
+            scores = generation_metrics.compute_bleu_rouge(pred, label)
             res["text_metrics"] = scores
             
             for k in total_metrics:
@@ -131,44 +132,51 @@ def main():
             valid_count += 1
             
         bleu_rouge_agg = {k: v/valid_count for k, v in total_metrics.items()} if valid_count > 0 else total_metrics
-        logging.info(f"BLEU-4: {bleu_rouge_agg['bleu-4']:.4f}")
-        logging.info(f"ROUGE-1: {bleu_rouge_agg['rouge-1']:.4f}")
-        logging.info(f"ROUGE-2: {bleu_rouge_agg['rouge-2']:.4f}")
-        logging.info(f"ROUGE-L: {bleu_rouge_agg['rouge-l']:.4f}")
+        for k, v in bleu_rouge_agg.items():
+            logging.info(f"{k.upper()}: {v:.4f}")
 
-    # ==========================================
-    # Phase 4: 语义相似度计算 (Semantic)
-    # ==========================================
-    semantic_agg = {}
-    if do_semantic:
-        logging.info(">>> 开始语义评估 (Semantic)...")
-        # 释放 LLM 显存（如果后面不再使用 LLM，例如只做 Semantic）
+
+    if do_semantic or do_bertscore:
         try:
             logging.info("释放 LLM 显存：删除 model 和 tokenizer，并触发 GC 与 CUDA cache 清理")
             del model
             del tokenizer
-            generate_fn = None
-            model = None
-            tokenizer = None
             gc.collect()
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
         except Exception as e:
             logging.warning(f"释放显存时发生异常: {e}")
-        
+
+
+    # ==========================================
+    # Phase 4: BERTScore
+    # ==========================================
+    bertscore_agg = {}
+    if do_bertscore:
+        logging.info(f">>> 开始 BERTScore 评估 (Language={eval_lang})...")
+        bertscore_model = cfg.get("bertscore_model", "microsoft/deberta-xlarge-mnli")
+        bertscore_agg = generation_metrics.compute_bertscore(
+            results,
+            lang=eval_lang, 
+            batch_size=cfg.get("embed_batch_size", 32),
+            model_type=bertscore_model
+        )
+        for k, v in bertscore_agg.items():
+            logging.info(f"{k}: {v:.4f}")
+
+    # ==========================================
+    # Phase 5: 语义相似度计算 (Semantic)
+    # ==========================================
+    semantic_agg = {}
+    if do_semantic:
+        logging.info(">>> 开始语义评估 (Semantic)...")
         embed_model_name = cfg.get("embedding_name_or_path", "Qwen/Qwen3-Embedding-0.6B")
         embed_cache = cfg.get("embedding_cache")
         embed_bs = cfg.get("embed_batch_size", 32)
-        threshold = cfg.get("semantic_threshold", 0.5)
+
+        semantic_agg = generation_metrics.compute_semantic(results, embedding_name=embed_model_name, cache_dir=embed_cache, batch_size=embed_bs)
         
-        semantic_agg = metrics_lib.compute_semantic(results, embedding_name=embed_model_name, cache_dir=embed_cache, batch_size=embed_bs, threshold=threshold)
-        
-        logging.info(f"宏平均 精确率: {semantic_agg['semantic_macro_precision']:.4f}")
-        logging.info(f"宏平均 召回率: {semantic_agg['semantic_macro_recall']:.4f}")
-        logging.info(f"宏平均 F1: {semantic_agg['semantic_macro_f1']:.4f}")
-        logging.info(f"微平均 精确率: {semantic_agg['semantic_micro_precision']:.4f}")
-        logging.info(f"微平均 召回率: {semantic_agg['semantic_micro_recall']:.4f}")
-        logging.info(f"微平均 F1: {semantic_agg['semantic_micro_f1']:.4f}")
+        logging.info(f"平均语义相似度: {semantic_agg['semantic_similarity']:.4f}")
 
     # ==========================================
     # Phase 5: 结果汇总与保存
@@ -176,9 +184,11 @@ def main():
     final_summary = {
         "run_label": run_label,
         "config": args.config,
+        "language": eval_lang,
         "metrics_summary": {
             "ppl_mean": sum(ppl_scores)/len(ppl_scores) if ppl_scores else None,
             **bleu_rouge_agg,
+            **bertscore_agg,
             **semantic_agg
         }
     }

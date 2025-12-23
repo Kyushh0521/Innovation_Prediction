@@ -53,7 +53,8 @@ def load_model_and_tokenizer(cfg_model: Dict):
         torch_dtype=torch.bfloat16,
         device_map="auto",
         cache_dir=cache_dir,
-        trust_remote_code=True
+        trust_remote_code=True,
+        attn_implementation="sdpa"  # 使用更高效的注意力实现
     )
 
     if adapter_path:
