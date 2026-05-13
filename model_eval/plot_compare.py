@@ -15,11 +15,76 @@ SEMANTIC_KEYS = ["semantic_similarity"]
 BLEU_KEYS = ["bleu-4", "rouge-1", "rouge-2", "rouge-l"]
 BERTSCORE_KEYS = ["bert_precision", "bert_recall", "bert_f1"]
 PPL_KEY = "ppl_mean"
+ADV_ASR_KEYS = ["word_level_asr", "char_level_asr"]
+ADV_QUERY_KEYS = ["word_level_avg_queries", "char_level_avg_queries"]
 
 def load_summary(path):
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
     return data.get("metrics_summary", {})
+
+def plot_adv_asr(summaryA, summaryB, labelA, labelB, outpath):
+    """
+    绘制攻击成功率 (ASR) 对比图。ASR 越低，证明模型越鲁棒。
+    """
+    valsA = [summaryA.get(k, 0) * 100 for k in ADV_ASR_KEYS]
+    valsB = [summaryB.get(k, 0) * 100 for k in ADV_ASR_KEYS]
+    
+    if sum(valsA) == 0 and sum(valsB) == 0:
+        return
+
+    x = np.arange(len(ADV_ASR_KEYS))
+    width = 0.35
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.bar(x - width/2, valsA, width, label=labelA, color="tab:gray")
+    ax.bar(x + width/2, valsB, width, label=labelB, color="tab:red")
+    
+    ax.set_xticks(x)
+    ax.set_xticklabels(["词级攻击 (TextFooler)", "字符级攻击 (DeepWordBug)"])
+    ax.set_ylabel("攻击成功率 ASR (%) - 越低越安全")
+    ax.set_title("对抗鲁棒性对比 (ASR)")
+    ax.legend()
+    ax.set_ylim(0, 105)
+    
+    for i, (a, b) in enumerate(zip(valsA, valsB)):
+        diff = b - a
+        ax.text(i, max(a, b) + 1, f"差值: {diff:+.1f}%", ha='center', fontsize=9, fontweight='bold')
+                
+    fig.tight_layout()
+    fig.savefig(outpath)
+    plt.close(fig)
+
+def plot_adv_queries(summaryA, summaryB, labelA, labelB, outpath):
+    """
+    绘制平均查询次数对比图。查询次数越多，证明攻击难度越大，模型安全性越高。
+    """
+    valsA = [summaryA.get(k, 0) for k in ADV_QUERY_KEYS]
+    valsB = [summaryB.get(k, 0) for k in ADV_QUERY_KEYS]
+
+    if sum(valsA) == 0 and sum(valsB) == 0:
+        return
+
+    x = np.arange(len(ADV_QUERY_KEYS))
+    width = 0.35
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.bar(x - width/2, valsA, width, label=labelA, color="tab:gray")
+    ax.bar(x + width/2, valsB, width, label=labelB, color="tab:blue")
+    
+    ax.set_xticks(x)
+    ax.set_xticklabels(["词级平均查询", "字符级平均查询"])
+    ax.set_ylabel("平均查询次数 - 越高难度越大")
+    ax.set_title("攻击复杂度对比 (Avg Queries)")
+    ax.legend()
+    
+    for i, (a, b) in enumerate(zip(valsA, valsB)):
+        diff = b - a
+        ax.text(i, max(a, b) + 1, f"{diff:+.1f}", ha='center', fontsize=9)
+                
+    fig.tight_layout()
+    fig.savefig(outpath)
+    plt.close(fig)
 
 def plot_semantic(summaryA, summaryB, labelA, labelB, outpath):
     valA = summaryA.get("semantic_similarity", 0.0)
@@ -141,6 +206,8 @@ def main():
     plot_bleu_rouge(summaryA, summaryB, "Pre", "Post", os.path.join(outdir, "bleu_rouge_compare.png"))
     plot_bertscore(summaryA, summaryB, "Pre", "Post", os.path.join(outdir, "bertscore_compare.png"))
     plot_ppl(summaryA, summaryB, "Pre", "Post", os.path.join(outdir, "ppl_compare.png"))
+    plot_adv_asr(summaryA, summaryB, "Pre", "Post", os.path.join(outdir, "adv_asr_compare.png"))
+    plot_adv_queries(summaryA, summaryB, "Pre", "Post", os.path.join(outdir, "adv_queries_compare.png"))
 
     print(f"图表已保存至: {outdir}")
 

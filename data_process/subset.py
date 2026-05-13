@@ -17,7 +17,7 @@ def main():
     input = "datasets/medical/med_test.json"
     output = "datasets/medical/med_test_subset.json"
     num = None
-    frac = 0.1
+    frac = 1
     seed = 42
 
     with open(input, "r", encoding="utf-8") as f:

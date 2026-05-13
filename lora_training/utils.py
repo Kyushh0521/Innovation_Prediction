@@ -6,6 +6,9 @@ import logging
 import argparse
 from datetime import datetime
 from typing import List, Dict
+import random
+import numpy as np
+import torch
 
 
 def now_str():
@@ -46,3 +49,14 @@ def load_config(path: str) -> Dict:
 def load_json(path: str) -> List[Dict]:
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
+
+def set_seed(seed: int = 42):
+    """设置全局随机种子以保证结果可重复性。"""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    # 确保在使用 cuDNN 时结果一致（会略微降低性能）
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    logging.info(f"全局随机种子已设置为: {seed}")

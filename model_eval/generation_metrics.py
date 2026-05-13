@@ -144,7 +144,7 @@ def compute_bleu_rouge(prediction: str, label: str) -> Dict[str, float]:
 # ===========================
 # 3. BERTScore 计算
 # ===========================
-def compute_bertscore(records: List[Dict], lang: str = "en", batch_size: int = 32, model_type: str = "microsoft/deberta-xlarge-mnli") -> Dict[str, float]:
+def compute_bertscore(records: List[Dict], lang: str = "en", batch_size: int = 32, model_type: str = "/mnt/share/wwt/models/microsoft/deberta-v2-xlarge-mnli") -> Dict[str, float]:
     if bs_score is None:
         return {}
     

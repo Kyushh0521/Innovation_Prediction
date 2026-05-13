@@ -1,37 +1,46 @@
 # ================= 基础环境配置 =================
 model_name_or_path: "Qwen/Qwen2.5-0.5B-Instruct"
 model_cache: "/mnt/share/wwt/models/Qwen/Qwen2.5-0.5B-Instruct"
-train_dataset: "lora_training/sample_sft_train.json"
+train_dataset: "datasets/medical/med_train_subset.json"
 result_output: "train_outputs"
-model_output: "/mnt/share/wwt/models/Qwen/Qwen2.5-0.5B-Instruct/lora_dyn_adv" # 模型与检查点输出目录（仅保存模型权重与相关文件）。
-max_length: 3072
+model_output: "/mnt/share/wwt/models/Qwen/Qwen2.5-0.5B-Instruct/med/lora_01" # 模型与检查点输出目录（仅保存模型权重与相关文件）。
+max_length: 1024
+seed: 42
 
 # ================= 训练核心超参 =================
-batch_size: 1                  # 单卡批次大小 (显存占用主要来源)
-gradient_accumulation_steps: 8 # 梯度累积步数。真实 Batch Size = 1 * 8 = 8
-epochs: 3                      # 训练轮数
-learning_rate: 1.0e-5          # LoRA 常用学习率
+batch_size: 2                  # 单卡批次大小 (显存占用主要来源)
+gradient_accumulation_steps: 4 # 梯度累积步数。真实 Batch Size = 1 * 8 = 8
+epochs: 6                      # 训练轮数
+learning_rate: 3.0e-5          # LoRA 常用学习率
 weight_decay: 0.01             # 增加一点正则化防止过拟合
 warmup_frac: 0.1               # 学习率热身比例，表示占总训练步数的比例，例如 0.1 表示 10%
 save_steps: 100                # 模型保存频率（步数）
 logging_steps: 10              # 日志打印频率，方便监控 Loss
 num_workers: 4                 # 数据加载进程数
-max_grad_norm: 1.0             # 梯度裁剪阈值
+max_grad_norm: 1             # 梯度裁剪阈值
 
 # ================= LoRA 配置 =================
 r: 8                        # 推荐 16 或 64，Qwen 对秩较敏感
 lora_alpha: 16              # 通常设为 r 的 2 倍
-dropout: 0.05
+dropout: 0.1
 target_modules: ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
 
 # ================= 对抗训练配置 =================
-twarmup_frac: 0.15           # 对抗扰动热身比例 (Root Level)
-eps_max: 0.4                # 最大扰动幅度 (Epsilon)
-adv_alpha: 0.05              # 单步攻击步长
-steps: 3                    # PGD 攻击步数 (K)
-lambda_adv: 1.0 
-            # 对抗损失权重
+twarmup_frac: 0.1           # 对抗扰动热身比例 (Root Level)
+eps_max: 0.3              # 最大扰动幅度 (Epsilon)
+adv_alpha: 0.001              # 单步攻击步长
+steps: 1                    # PGD 攻击步数 (K)
+lambda_adv: 0.0             # 对抗损失权重
+
+# ================ 主动探测参数 =================
+eps_probe: 0.01          # 探测噪声的半径
+probe_per_steps: 4       # 每隔多少个 batch 执行一次主动探测
+ema_beta: 0.9            # 梯度范数的指数移动平均系数
+
+# ================ 自适应权重策略参数 ================
+lambda_min: 0.3          # 防御权重下限，确保基础鲁棒性
+lambda_max: 2.0          # 防御权重上限，防止梯度爆炸
 
 # ================= 验证集配置 =================
-eval_dataset: "lora_training/sample_sft_val.json"
-eval_steps: 20              # 每隔多少步进行一次验证
+eval_dataset: "datasets/medical/med_val_subset.json"
+eval_steps: 100              # 每隔多少步进行一次验证

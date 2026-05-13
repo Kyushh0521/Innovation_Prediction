@@ -8,11 +8,11 @@ import pandas as pd
 
 # === 配置区域：仿照 enterprises_full_clean.py 的最小删列脚本 ===
 # 输入文件（Workbook）
-INPUT_PATH = "Dataset/achievements_full.xlsx"
+INPUT_PATH = "original_data/achievements_full.xlsx"
 # 读取的 sheet（名称或索引）
 SHEET = 0
 # 输出文件路径
-OUTPUT_PATH = "Dataset/achievements_full_cleaned.xlsx"
+OUTPUT_PATH = "original_data/achievements_full_cleaned.xlsx"
 
 # 可配置：要按 title 精确匹配删除的记录（把需要删除的 title 字符串放在此列表中）
 # 例如: DELETE_TITLES = ["测试记录A", "测试记录B", "测试记录C"]
@@ -411,9 +411,19 @@ def remove_html_tags(s: object) -> str:
         text = text.replace('<', '').replace('>', '')
         # 同时删除特定需要剔除的符号，如实心箭头 ▶
         text = text.replace('▶', '')
+
+        # 移除 MS Word / HTML 导出中常见的条件注释标记
+        # 例如 <!--[if !supportLists]-->、<!--[endif]--> 以及无尖括号变体
+        text = re.sub(r"<!--\s*\[if\s*!?\s*supportLists\]\s*-->", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"<!--\s*\[endif\]\s*-->", "", text, flags=re.IGNORECASE)
+        # 兼容无尖括号或被剥落的形式
+        text = re.sub(r"!?\s*!?\s*\[if\s*!?\s*supportLists\]\s*!?\s*!?", "", text, flags=re.IGNORECASE)
+        # 以及裸露的标记字符串
+        text = text.replace('!--[if!supportLists]--', '').replace('!--[endif]--', '').replace('![if!supportLists]', '').replace('![endif]', '').replace('!----&uuml;', '').replace('&uuml;', '').replace('!----', '')
     except re.error:
-        # 发生正则错误时，回退为删除尖括号的简单处理
+        # 发生正则错误时，回退为删除尖括号的简单处理并尝试字符串替换
         text = text.replace('<', '').replace('>', '')
+        text = text.replace('!--[if!supportLists]--', '').replace('!--[endif]--', '').replace('![if!supportLists]', '').replace('![endif]', '').replace('!----&uuml;', '').replace('&uuml;', '').replace('!----', '')
     return text.strip()
 
 

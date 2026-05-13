@@ -9,7 +9,7 @@ import gc
 
 # 引入自定义模块
 from utils import init_logging, load_json, load_config, load_model_and_tokenizer, get_generate_fn
-import model_eval.generation_metrics as generation_metrics
+import generation_metrics as generation_metrics
 
 def main():
     parser = argparse.ArgumentParser(description="统一模型评估工具")
@@ -179,7 +179,7 @@ def main():
         logging.info(f"平均语义相似度: {semantic_agg['semantic_similarity']:.4f}")
 
     # ==========================================
-    # Phase 5: 结果汇总与保存
+    # Phase 6: 结果汇总与保存
     # ==========================================
     final_summary = {
         "run_label": run_label,
