@@ -24,7 +24,3 @@ embedding_name_or_path: "Qwen/Qwen3-Embedding-0.6B"
 embedding_cache: "/mnt/share/wwt/models/Qwen/Qwen3-Embedding-0.6B"
 embed_batch_size: 16
 semantic_threshold: 0.5
-
-# SST2 评估专用配置
-num_labels: 2
-sst2_batch_size: 16
